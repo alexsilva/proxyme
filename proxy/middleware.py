@@ -48,8 +48,8 @@ class ProxyRequest(object):
     @property
     def path(self):
         path = self.request.path.lstrip('/').strip()
-        if not path:
-            path = utils.get_absolute_url()
+        if not path or not path.startswith('http'):
+            path = utils.get_request_absolute_url(self.request)
         return path
 
     def process_request(self, request):

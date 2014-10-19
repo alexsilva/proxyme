@@ -26,3 +26,11 @@ def get_absolute_url():
     elif server_port != '80':
         url += ':' + server_port
     return url
+
+
+def get_request_absolute_url(request):
+    server_name = request.META['SERVER_NAME']
+    request_uri = request.META['REQUEST_URI']
+    scheme = request.META['wsgi.url_scheme']
+    return "{scheme}://{server}{uri}".format(scheme=scheme, uri=request_uri,
+                                             server=server_name)
