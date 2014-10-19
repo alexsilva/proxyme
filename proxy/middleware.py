@@ -23,7 +23,7 @@ class Iterator(object):
             if not chunk:
                 break
             after = time.time()
-            counter = self.best_block_size((after-before), chunk)
+            counter = self.best_block_size((after-before), len(chunk))
             yield chunk
         raise StopIteration
 
@@ -39,6 +39,10 @@ class Iterator(object):
         if rate < new_min:
             return long(new_min)
         return long(rate)
+
+    @property
+    def content(self):
+        return ''.join(self)
 
 
 class Cache(object):
@@ -125,16 +129,16 @@ class ProxyRequest(object):
         headers = copy.deepcopy(request.GET)
         headers.update(request.POST)
 
-        req = session.request(request.method, self.get_path(request), proxies=self.NO_PROXY, headers=headers)
+        req = session.request(request.method, self.get_path(request), proxies=self.NO_PROXY,
+                              headers=headers, stream=True)
 
         if req.headers['content-type'].startswith('image'):
-            req = session.request(request.method, self.get_path(request), proxies=self.NO_PROXY,
-                                  stream=True)
-            response = StreamingHttpResponse(req.raw)
+            response = StreamingHttpResponse(Iterator(req.raw))
             self.copy_headers_to(req.headers, response)
             return response
 
-        text = req.text
+        req.raw.decode_content = True
+        text = Iterator(req.raw).content
 
         response = HttpResponse(text)
         headers = self.copy_headers_to(req.headers, response)
