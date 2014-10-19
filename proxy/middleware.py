@@ -1,4 +1,4 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.core.cache import get_cache, DEFAULT_CACHE_ALIAS
 import requests
 from proxy import utils
@@ -21,6 +21,14 @@ class Cache(object):
 
     def has(self, name):
         return self.cache.has_key(self.sep.join([self.scope, name]))
+
+    def iter(self, name):
+        text = self.cache.get(self.sep.join([self.scope, name]))
+        counter = 2048
+        while text:
+            yield text[:counter]
+            text = text[counter:]
+        raise StopIteration
 
 
 class ProxyRequest(object):
@@ -64,7 +72,7 @@ class ProxyRequest(object):
         return response
 
     def _response_cache(self):
-        response = HttpResponse(self.cache[self.CONTENT])
+        response = StreamingHttpResponse(self.cache.iter(self.CONTENT))
         for header, value in self.cache[self.HEADERS].iteritems():
             response[header] = value
         return response
