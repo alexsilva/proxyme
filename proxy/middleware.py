@@ -1,6 +1,7 @@
 from django.http import HttpResponse
 from django.core.cache import get_cache, DEFAULT_CACHE_ALIAS
 import requests
+from proxy import utils
 
 __author__ = 'alex'
 
@@ -46,7 +47,10 @@ class ProxyRequest(object):
 
     @property
     def path(self):
-        return self.request.path.lstrip('/')
+        path = self.request.path.lstrip('/').strip()
+        if not path:
+            path = utils.get_absolute_url()
+        return path
 
     def process_request(self, request):
         self.request = request
