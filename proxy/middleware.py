@@ -20,7 +20,6 @@ class Iterator(object):
         while True:
             before = time.time()
             chunk = self.data.read(counter)
-            print chunk
             if not chunk:
                 break
             after = time.time()
