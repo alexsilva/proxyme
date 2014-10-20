@@ -156,18 +156,14 @@ class ProxyRequest(object):
         session = requests.Session()
         session.trust_env = False
 
-        if request.method == 'POST':
-            data = request.POST.copy()
-        else:
-            data = None
-
         request_headers = utils.get_request_headers(request)
         headers = utils.filter_by(request_headers, *self.REQUEST_HEADERS)
 
         path = self.get_path(request)
 
         with closing(session.request(request.method, path, proxies=self.NO_PROXY,
-                                     data=data, stream=True, headers=headers, allow_redirects=True)) as req:
+                                     data=request.POST.copy(), stream=True, headers=headers,
+                                     allow_redirects=True)) as req:
             if req.headers.get('content-type', '').startswith('image'):
                 response = StreamingHttpResponse(IterCaching(path, req.raw))
                 headers = self.copy_headers_to(req.headers, response)
