@@ -109,8 +109,12 @@ class SmartCache(object):
     def is_chunked(self):
         return self.transfer_encoding == 'chucked'
 
+    @property
+    def is_application(self):
+        return self.content_type.startswith('application/octet-stream')
+
     def is_iterable(self):
-        return self.is_image or self.is_chunked
+        return self.is_image or self.is_chunked or self.is_application
 
     def is_cacheable(self):
         return self.is_image
