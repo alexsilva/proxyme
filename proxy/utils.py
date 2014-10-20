@@ -1,6 +1,7 @@
 # coding=utf-8
 import os
 import re
+from unicodedata import normalize
 
 __author__ = 'alex'
 
@@ -64,3 +65,9 @@ def filter_by(items, *options):
         if h in items:
             _options[h] = items[h]
     return _options
+
+
+def ascii(txt):
+    if isinstance(txt, unicode):
+        txt = normalize('NFKD', txt).encode('ASCII', 'ignore')
+    return txt

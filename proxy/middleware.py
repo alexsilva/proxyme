@@ -47,7 +47,7 @@ class Cache(object):
     sep = ':'
 
     def __init__(self, scope):
-        self.scope = hashlib.md5(scope).hexdigest()
+        self.scope = hashlib.md5(utils.ascii(scope)).hexdigest()
         self.cache = get_cache(DEFAULT_CACHE_ALIAS)
 
     def join(self, name):
