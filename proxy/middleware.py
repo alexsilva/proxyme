@@ -162,12 +162,8 @@ class ProxyRequest(object):
         return response
 
     def _response_cache(self, request, cache):
-        stream = False
-        for value in cache[self.HEADERS].itervalues():
-            if value.startswith('image'):
-                stream = True
-                break
-        if stream:
+        _smart = SmartCache(**cache[self.HEADERS])
+        if _smart.is_iterable():
             response = StreamingHttpResponse(cache.iter(self.CONTENT))
         else:
             response = HttpResponse(cache[self.CONTENT])
@@ -187,7 +183,7 @@ class ProxyRequest(object):
         with closing(session.request(request.method, path, proxies=self.NO_PROXY,
                                      data=request.POST.copy(), stream=True, headers=headers,
                                      allow_redirects=True)) as req:
-            _smart = SmartCache(req.headers)
+            _smart = SmartCache(**req.headers)
             if _smart.is_iterable():
                 if _smart.is_cacheable():
                     response = StreamingHttpResponse(IterCaching(path, req.raw))
