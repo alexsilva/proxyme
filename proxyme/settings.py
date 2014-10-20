@@ -50,7 +50,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'proxy.middleware.ProxyRequest',
-    #'django.middleware.gzip.GZipMiddleware'
+    'django.middleware.gzip.GZipMiddleware'
 )
 
 ROOT_URLCONF = 'proxyme.urls'
