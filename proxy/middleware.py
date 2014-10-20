@@ -1,6 +1,6 @@
 import StringIO
 from contextlib import closing
-import copy
+import tempfile
 import urllib
 from django.http import HttpResponse, StreamingHttpResponse
 from django.core.cache import get_cache, DEFAULT_CACHE_ALIAS
@@ -69,6 +69,28 @@ class Cache(object):
     def iter(self, name):
         content = self.cache.get(self.join(name))
         return Iterator(StringIO.StringIO(content))
+
+
+class IterCaching(Iterator, Cache):
+    def __init__(self, scope, data, **kwargs):
+        Iterator.__init__(self, data)
+        Cache.__init__(self, scope)
+        self.temp = tempfile.TemporaryFile()
+        self.kwargs = kwargs
+
+    def __iter__(self):
+        try:
+            iterator = super(IterCaching, self).__iter__()
+            for data in iterator:
+                self.temp.write(data)
+                yield data
+        except StopIteration:
+            raise
+        finally:
+            self.temp.seek(0)
+            self[ProxyRequest.HEADERS] = self.kwargs
+            self[ProxyRequest.CONTENT] = self.temp.read()
+            self.temp.close()
 
 
 class ProxyRequest(object):
@@ -142,11 +164,14 @@ class ProxyRequest(object):
         request_headers = utils.get_request_headers(request)
         headers = utils.filter_by(request_headers, *self.REQUEST_HEADERS)
 
-        with closing(session.request(request.method, self.get_path(request), proxies=self.NO_PROXY,
+        path = self.get_path(request)
+
+        with closing(session.request(request.method, path, proxies=self.NO_PROXY,
                                      data=data, stream=True, headers=headers, allow_redirects=True)) as req:
             if req.headers.get('content-type', '').startswith('image'):
-                response = StreamingHttpResponse(Iterator(req.raw))
-                self.copy_headers_to(req.headers, response)
+                response = StreamingHttpResponse(IterCaching(path, req.raw))
+                headers = self.copy_headers_to(req.headers, response)
+                cache[self.HEADERS] = headers
                 return response
 
             text = req.text
