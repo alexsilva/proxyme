@@ -153,7 +153,7 @@ class ProxyRequest(object):
             path = utils.get_request_absolute_url(request)
         if request.method == 'GET' and request.META['QUERY_STRING']:
             path += ('?' + request.META['QUERY_STRING'])
-            path = urllib.unquote_plus(path)
+            path = urllib.unquote_plus(str(path))
         return path
 
     def process_request(self, request):
