@@ -1,5 +1,7 @@
 import StringIO
+from contextlib import closing
 import copy
+import urllib
 from django.http import HttpResponse, StreamingHttpResponse
 from django.core.cache import get_cache, DEFAULT_CACHE_ALIAS
 import requests
@@ -20,7 +22,7 @@ class Iterator(object):
         while True:
             before = time.time()
             chunk = self.data.read(counter)
-            if not chunk:
+            if not chunk and counter:
                 break
             after = time.time()
             counter = self.best_block_size((after-before), len(chunk))
@@ -85,11 +87,15 @@ class ProxyRequest(object):
         'trailers',
         'transfer-encoding',
         'upgrade',
-        'content-encoding'
+        'content-encoding',
     ]
 
-    def __init__(self):
-        pass
+    REQUEST_HEADERS = [
+        'USER-AGENT',
+        'ACCEPT-ENCODING',
+        'ACCEPT-LANGUAGE',
+        'CONTENT-TYPE'
+    ]
 
     @staticmethod
     def get_path(request):
@@ -126,25 +132,34 @@ class ProxyRequest(object):
         session = requests.Session()
         session.trust_env = False
 
-        headers = copy.deepcopy(request.GET)
-        headers.update(request.POST)
+        data = request.GET.copy()
+        data.update(request.POST)
 
-        req = session.request(request.method, self.get_path(request), proxies=self.NO_PROXY,
-                              headers=headers, stream=True)
+        url = self.get_path(request)
 
-        if req.headers['content-type'].startswith('image'):
-            response = StreamingHttpResponse(Iterator(req.raw))
-            self.copy_headers_to(req.headers, response)
-            return response
+        if request.method == 'GET':
+            url += urllib.urlencode(data)
+            data = None
 
-        req.raw.decode_content = True
-        text = Iterator(req.raw).content
+        request_headers = utils.get_request_headers(request)
+        headers = utils.filter_by(request_headers, *self.REQUEST_HEADERS)
 
-        response = HttpResponse(text)
-        headers = self.copy_headers_to(req.headers, response)
+        with closing(session.request(request.method, url, proxies=self.NO_PROXY,
+                                     data=data, stream=True, headers=headers, allow_redirects=True)) as req:
+            if req.headers.get('content-type', '').startswith('image'):
+                response = StreamingHttpResponse(Iterator(req.raw))
+                self.copy_headers_to(req.headers, response)
+                return response
 
-        cache[self.HEADERS] = headers
-        cache[self.CONTENT] = text
+            req.raw.decode_content = True
+            text = Iterator(req.raw).content
+
+            response = HttpResponse(text)
+            headers = self.copy_headers_to(req.headers, response)
+
+            cache[self.HEADERS] = headers
+            cache[self.CONTENT] = text
+
         return response
 
     @classmethod
