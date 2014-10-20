@@ -102,6 +102,8 @@ class ProxyRequest(object):
         path = request.path.lstrip('/').strip()
         if not path or not path.startswith('http'):
             path = utils.get_request_absolute_url(request)
+        if request.method == 'GET' and request.GET:
+            path += urllib.urlencode(request.GET)
         return path
 
     def process_request(self, request):
@@ -132,19 +134,15 @@ class ProxyRequest(object):
         session = requests.Session()
         session.trust_env = False
 
-        data = request.GET.copy()
-        data.update(request.POST)
-
-        url = self.get_path(request)
-
-        if request.method == 'GET':
-            url += urllib.urlencode(data)
+        if request.method == 'POST':
+            data = request.POST.copy()
+        else:
             data = None
 
         request_headers = utils.get_request_headers(request)
         headers = utils.filter_by(request_headers, *self.REQUEST_HEADERS)
 
-        with closing(session.request(request.method, url, proxies=self.NO_PROXY,
+        with closing(session.request(request.method, self.get_path(request), proxies=self.NO_PROXY,
                                      data=data, stream=True, headers=headers, allow_redirects=True)) as req:
             if req.headers.get('content-type', '').startswith('image'):
                 response = StreamingHttpResponse(Iterator(req.raw))
