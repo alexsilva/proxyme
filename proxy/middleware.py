@@ -90,6 +90,8 @@ class IterCaching(Iterator, Cache):
 
 
 class SmartCache(object):
+    MEGABYTE = 1024 ** 2
+
     def __init__(self, **headers):
         self.headers = headers
 
@@ -143,7 +145,8 @@ class ProxyRequest(object):
         'USER-AGENT',
         'ACCEPT-ENCODING',
         'ACCEPT-LANGUAGE',
-        'CONTENT-TYPE'
+        'CONTENT-TYPE',
+        'COOKIE'
     ]
 
     @staticmethod
