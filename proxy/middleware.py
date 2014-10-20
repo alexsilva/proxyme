@@ -151,8 +151,7 @@ class ProxyRequest(object):
                 self.copy_headers_to(req.headers, response)
                 return response
 
-            req.raw.decode_content = True
-            text = Iterator(req.raw).content
+            text = req.text
 
             response = HttpResponse(text)
             headers = self.copy_headers_to(req.headers, response)
