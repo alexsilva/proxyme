@@ -152,7 +152,7 @@ class ProxyRequest(object):
         if not path or not path.startswith('http'):
             path = utils.get_request_absolute_url(request)
         if request.method == 'GET' and request.GET:
-            path += urllib.urlencode(request.GET)
+            path += ('?' + urllib.urlencode(request.GET))
         return path
 
     def process_request(self, request):
