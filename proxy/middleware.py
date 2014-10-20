@@ -151,12 +151,14 @@ class ProxyRequest(object):
         path = request.path.lstrip('/').strip()
         if not path or not path.startswith('http'):
             path = utils.get_request_absolute_url(request)
-        if request.method == 'GET' and request.GET:
-            path += ('?' + urllib.urlencode(request.GET))
+        if request.method == 'GET' and request.META['QUERY_STRING']:
+            path += ('?' + request.META['QUERY_STRING'])
+            path = urllib.unquote_plus(path)
         return path
 
     def process_request(self, request):
-        cache = Cache(self.get_path(request))
+        path = self.get_path(request)
+        cache = Cache(path)
 
         if cache.has(self.CONTENT) and cache.has(self.HEADERS):
             response = self._response_cache(request, cache)
