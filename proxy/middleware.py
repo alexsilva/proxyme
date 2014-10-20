@@ -89,6 +89,33 @@ class IterCaching(Iterator, Cache):
             self.temp.close()
 
 
+class SmartCache(object):
+    def __init__(self, **headers):
+        self.headers = headers
+
+    @property
+    def content_type(self):
+        return self.headers.get('content-type', '')
+
+    @property
+    def transfer_encoding(self):
+        return self.headers.get('transfer-encoding', '')
+
+    @property
+    def is_image(self):
+        return self.content_type.startswith('image')
+
+    @property
+    def is_chunked(self):
+        return self.transfer_encoding == 'chucked'
+
+    def is_iterable(self):
+        return self.is_image or self.is_chunked
+
+    def is_cacheable(self):
+        return self.is_image
+
+
 class ProxyRequest(object):
     """ proxy server it self """
     CONTENT = 'text'
@@ -160,8 +187,12 @@ class ProxyRequest(object):
         with closing(session.request(request.method, path, proxies=self.NO_PROXY,
                                      data=request.POST.copy(), stream=True, headers=headers,
                                      allow_redirects=True)) as req:
-            if req.headers.get('content-type', '').startswith('image'):
-                response = StreamingHttpResponse(IterCaching(path, req.raw))
+            _smart = SmartCache(req.headers)
+            if _smart.is_iterable():
+                if _smart.is_cacheable():
+                    response = StreamingHttpResponse(IterCaching(path, req.raw))
+                else:
+                    response = StreamingHttpResponse(Iterator(req.raw))
                 headers = self.copy_headers_to(req.headers, response)
                 cache[self.HEADERS] = headers
                 return response
