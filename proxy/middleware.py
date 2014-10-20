@@ -42,10 +42,6 @@ class Iterator(object):
             return long(new_min)
         return long(rate)
 
-    @property
-    def content(self):
-        return ''.join(self)
-
 
 class Cache(object):
     sep = ':'
