@@ -93,7 +93,7 @@ class IterCaching(Iterator, Cache):
 class SmartCache(object):
     MEGABYTE = 1024 ** 2
 
-    pattern = re.compile("^application/(?:octet|x-shockwave.*?)")
+    pattern = re.compile("^application/(?:octet-stream.*?|x-shockwave.*?)")
 
     def __init__(self, **headers):
         self.headers = headers
