@@ -93,7 +93,8 @@ class IterCaching(Iterator, Cache):
 class SmartCache(object):
     MEGABYTE = 1024 ** 2
 
-    pattern = re.compile("^application/(?:octet-stream.*?|x-shockwave.*?)")
+    pattern_app = re.compile("^application/(?:octet-stream.*?|x-shockwave.*?)")
+    pattern_video = re.compile("^video/.*")
 
     def __init__(self, **headers):
         self.headers = headers
@@ -116,10 +117,14 @@ class SmartCache(object):
 
     @property
     def is_application(self):
-        return self.pattern.match(self.content_type)
+        return bool(self.pattern_app.match(self.content_type))
+
+    @property
+    def is_video(self):
+        return bool(self.pattern_video.match(self.content_type))
 
     def is_iterable(self):
-        return self.is_image or self.is_chunked or self.is_application
+        return self.is_image or self.is_chunked or self.is_application or self.is_video
 
     def is_cacheable(self):
         return self.is_image
