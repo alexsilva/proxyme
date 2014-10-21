@@ -4,6 +4,7 @@ import tempfile
 import urllib
 from django.http import HttpResponse, StreamingHttpResponse
 from django.core.cache import get_cache, DEFAULT_CACHE_ALIAS
+import re
 import requests
 from proxy import utils
 import time
@@ -92,6 +93,8 @@ class IterCaching(Iterator, Cache):
 class SmartCache(object):
     MEGABYTE = 1024 ** 2
 
+    pattern = re.compile("^application/(?:octet|x-shockwave.*?)")
+
     def __init__(self, **headers):
         self.headers = headers
 
@@ -113,7 +116,7 @@ class SmartCache(object):
 
     @property
     def is_application(self):
-        return self.content_type.startswith('application/octet-stream')
+        return self.pattern.match(self.content_type)
 
     def is_iterable(self):
         return self.is_image or self.is_chunked or self.is_application
