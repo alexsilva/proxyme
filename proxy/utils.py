@@ -56,6 +56,13 @@ def filter_by(items, *options):
     return _options
 
 
+def exclude_by(items, *options):
+    _options = {}
+    for h in items:
+        if not h in options:
+            _options[h] = items[h]
+    return _options
+
 def ascii(txt):
     if isinstance(txt, unicode):
         txt = normalize('NFKD', txt).encode('ASCII', 'ignore')

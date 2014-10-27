@@ -164,6 +164,11 @@ class ProxyRequest(object):
         'COOKIE'
     ]
 
+    RESPONSE_EXCLUDES = [
+        'content-length',
+        'content-encoding'
+    ]
+
     FRAME_OPTION = 'ALLOW-FROM {REFERER}'
 
     def process_request(self, request):
@@ -203,22 +208,26 @@ class ProxyRequest(object):
         with closing(session.request(request.method, path, proxies=self.NO_PROXY,
                                      data=request.POST.copy(), stream=True, headers=headers,
                                      allow_redirects=True)) as req:
-            _smart = SmartCache(**req.headers)
+
+            resp_headers = req.headers
+
+            _smart = SmartCache(**resp_headers)
 
             if _smart.is_text:
                 text = req.text
 
+                resp_headers = utils.exclude_by(
+                    req.headers, *self.RESPONSE_EXCLUDES)
+
                 response = HttpResponse(text)
                 cache[self.CONTENT] = text
-
             elif _smart.is_cacheable():
                 response = StreamingHttpResponse(IterCaching(path, req.raw))
             else:
                 response = StreamingHttpResponse(Iterator(req.raw))
 
-            cache[self.HEADERS] = self.copy_headers(req.headers, response)
-
-            self.setup_response_headers(response, headers)
+            cache[self.HEADERS] = self.copy_headers(resp_headers, response)
+            self.setup_response_headers(response, resp_headers)
         return response
 
     @classmethod
