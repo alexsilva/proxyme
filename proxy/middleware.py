@@ -167,8 +167,7 @@ class ProxyRequest(object):
     FRAME_OPTION = 'ALLOW-FROM {REFERER}'
 
     def process_request(self, request):
-        path = utils.get_path(request)
-        cache = Cache(path)
+        cache = Cache("{0!s}:{1!s}".format(request.method, utils.get_path(request)))
 
         if cache.has(self.CONTENT) and cache.has(self.HEADERS):
             response = self._response_cache(request, cache)
