@@ -91,7 +91,6 @@ class IterCaching(Iterator, Cache):
 
 
 class SmartCache(object):
-    MEGABYTE = 1024 ** 2
 
     pattern_program = re.compile("^(?:application/(?:octet-stream.*?|x-shockwave.*?)|font.*$)")
     pattern_text = re.compile("^(?:text/.*$|application/(?:(?:x-)?javascript|xhtml.*$|vnd.*$))", re.I)
