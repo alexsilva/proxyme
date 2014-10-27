@@ -24,8 +24,7 @@ def get_path(request):
         path = get_request_url(request)
     if request.method == 'GET' and request.META['QUERY_STRING']:
         path += ('?' + request.META['QUERY_STRING'])
-        path = urllib.unquote_plus(str(path))
-    return path
+    return str(path)
 
 
 def get_request_headers(request):

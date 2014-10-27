@@ -125,7 +125,7 @@ class SmartCache(object):
 
     @property
     def is_text(self):
-        return bool(self.pattern_text.match(self.content_type))
+        return bool(self.pattern_text.match(self.content_type) or not self.content_type)
 
     def is_iterable(self):
         return self.is_image or self.is_chunked or self.is_application or self.is_media
