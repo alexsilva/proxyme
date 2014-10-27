@@ -94,7 +94,7 @@ class SmartCache(object):
     MEGABYTE = 1024 ** 2
 
     pattern_app = re.compile("^application/(?:octet-stream.*?|x-shockwave.*?)")
-    pattern_text = re.compile("^(?:text/(?:html|xhtml|css|plain|javascript)|application/(?:javascript|xhtml))")
+    pattern_text = re.compile("^(?:text/(?:html|xhtml|css|plain|javascript|xml)|application/(?:javascript|xhtml))")
     pattern_video = re.compile("^video/.*")
 
     def __init__(self, **headers):
