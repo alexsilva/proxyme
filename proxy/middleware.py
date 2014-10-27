@@ -200,12 +200,12 @@ class ProxyRequest(object):
         session.trust_env = False
 
         request_headers = utils.get_request_headers(request)
-        headers = utils.filter_by(request_headers, *self.REQUEST_HEADERS)
+        req_headers = utils.filter_by(request_headers, *self.REQUEST_HEADERS)
 
         path = utils.get_path(request)
 
         with closing(session.request(request.method, path, proxies=self.NO_PROXY,
-                                     data=request.POST.copy(), stream=True, headers=headers,
+                                     data=request.POST.copy(), stream=True, headers=req_headers,
                                      allow_redirects=True)) as req:
 
             resp_headers = req.headers
@@ -226,7 +226,7 @@ class ProxyRequest(object):
                 response = StreamingHttpResponse(Iterator(req.raw))
 
             cache[self.HEADERS] = self.copy_headers(resp_headers, response)
-            self.setup_response_headers(response, resp_headers)
+            self.setup_response_headers(response, req_headers)
         return response
 
     @classmethod
