@@ -166,18 +166,8 @@ class ProxyRequest(object):
 
     FRAME_OPTION = 'ALLOW-FROM {REFERER}'
 
-    @staticmethod
-    def get_path(request):
-        path = request.path.lstrip('/').strip()
-        if not path or not path.startswith('http'):
-            path = utils.get_request_absolute_url(request)
-        if request.method == 'GET' and request.META['QUERY_STRING']:
-            path += ('?' + request.META['QUERY_STRING'])
-            path = urllib.unquote_plus(str(path))
-        return path
-
     def process_request(self, request):
-        path = self.get_path(request)
+        path = utils.get_path(request)
         cache = Cache(path)
 
         if cache.has(self.CONTENT) and cache.has(self.HEADERS):
@@ -209,7 +199,7 @@ class ProxyRequest(object):
         request_headers = utils.get_request_headers(request)
         headers = utils.filter_by(request_headers, *self.REQUEST_HEADERS)
 
-        path = self.get_path(request)
+        path = utils.get_path(request)
 
         with closing(session.request(request.method, path, proxies=self.NO_PROXY,
                                      data=request.POST.copy(), stream=True, headers=headers,
