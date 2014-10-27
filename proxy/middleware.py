@@ -94,7 +94,7 @@ class SmartCache(object):
     MEGABYTE = 1024 ** 2
 
     pattern_app = re.compile("^application/(?:octet-stream.*?|x-shockwave.*?)")
-    pattern_text = re.compile("^(?:text/(?:html|xhtml|css)|application/javascript)")
+    pattern_text = re.compile("^(?:text/(?:html|xhtml|css|plain)|application/(?:javascript|xhtml))")
     pattern_video = re.compile("^video/.*")
 
     def __init__(self, **headers):
@@ -159,8 +159,12 @@ class ProxyRequest(object):
         'ACCEPT-ENCODING',
         'ACCEPT-LANGUAGE',
         'CONTENT-TYPE',
+        'REFERER',
+        'HOST',
         'COOKIE'
     ]
+
+    FRAME_OPTION = 'ALLOW-FROM {REFERER}'
 
     @staticmethod
     def get_path(request):
@@ -184,13 +188,18 @@ class ProxyRequest(object):
         return response
 
     def _response_cache(self, request, cache):
-        _smart = SmartCache(**cache[self.HEADERS])
-        if _smart.is_iterable():
-            response = StreamingHttpResponse(cache.iter(self.CONTENT))
-        else:
+        headers = cache[self.HEADERS]
+
+        _smart = SmartCache(**headers)
+
+        if _smart.is_text:
             response = HttpResponse(cache[self.CONTENT])
-        for header, value in cache[self.HEADERS].iteritems():
+        else:
+            response = StreamingHttpResponse(cache.iter(self.CONTENT))
+        for header, value in headers.iteritems():
             response[header] = value
+
+        self.setup_response_headers(response, headers)
         return response
 
     def _response_web(self, request, cache):
@@ -220,7 +229,14 @@ class ProxyRequest(object):
 
             cache[self.HEADERS] = self.copy_headers(req.headers, response)
 
+            self.setup_response_headers(response, headers)
         return response
+
+    @classmethod
+    def setup_response_headers(cls, response, headers):
+        if 'REFERER' in headers:
+            response['X-Frame-Options'] = cls.FRAME_OPTION.format(
+                **headers)
 
     @classmethod
     def copy_headers(cls, headers, response):
