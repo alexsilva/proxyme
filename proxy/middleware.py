@@ -94,6 +94,7 @@ class SmartCache(object):
     MEGABYTE = 1024 ** 2
 
     pattern_app = re.compile("^application/(?:octet-stream.*?|x-shockwave.*?)")
+    pattern_text = re.compile("^(?:text/(?:html|xhtml|css)|application/javascript)")
     pattern_video = re.compile("^video/.*")
 
     def __init__(self, **headers):
@@ -122,6 +123,10 @@ class SmartCache(object):
     @property
     def is_video(self):
         return bool(self.pattern_video.match(self.content_type))
+
+    @property
+    def is_text(self):
+        return bool(self.pattern_text.match(self.content_type))
 
     def is_iterable(self):
         return self.is_image or self.is_chunked or self.is_application or self.is_video
@@ -201,27 +206,24 @@ class ProxyRequest(object):
                                      data=request.POST.copy(), stream=True, headers=headers,
                                      allow_redirects=True)) as req:
             _smart = SmartCache(**req.headers)
-            if _smart.is_iterable():
-                if _smart.is_cacheable():
-                    response = StreamingHttpResponse(IterCaching(path, req.raw))
-                else:
-                    response = StreamingHttpResponse(Iterator(req.raw))
-                headers = self.copy_headers_to(req.headers, response)
-                cache[self.HEADERS] = headers
-                return response
 
-            text = req.text
+            if _smart.is_text:
+                text = req.text
 
-            response = HttpResponse(text)
-            headers = self.copy_headers_to(req.headers, response)
+                response = HttpResponse(text)
+                cache[self.CONTENT] = text
 
-            cache[self.HEADERS] = headers
-            cache[self.CONTENT] = text
+            elif _smart.is_cacheable():
+                response = StreamingHttpResponse(IterCaching(path, req.raw))
+            else:
+                response = StreamingHttpResponse(Iterator(req.raw))
+
+            cache[self.HEADERS] = self.copy_headers(req.headers, response)
 
         return response
 
     @classmethod
-    def copy_headers_to(cls, headers, response):
+    def copy_headers(cls, headers, response):
         _headers = {}
         for header, value in headers.iteritems():
             if not header.lower() in cls.HOP_BY_HOP_HEADER:
