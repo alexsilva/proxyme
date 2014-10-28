@@ -113,7 +113,7 @@ class SmartCache(object):
 
     @property
     def is_chunked(self):
-        return self.transfer_encoding == 'chucked'
+        return self.transfer_encoding == 'chunked'
 
     @property
     def is_application(self):
