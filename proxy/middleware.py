@@ -1,5 +1,6 @@
 import StringIO
 from contextlib import closing
+import os
 import tempfile
 import urllib
 from django.http import HttpResponse, StreamingHttpResponse
@@ -48,8 +49,12 @@ class Cache(object):
     sep = ':'
 
     def __init__(self, scope):
-        self.scope = hashlib.md5(utils.ascii(scope)).hexdigest()
+        self.scope = self.create_key(scope)
         self.cache = get_cache(DEFAULT_CACHE_ALIAS)
+
+    @staticmethod
+    def create_key(data):
+        return hashlib.md5(utils.ascii(data)).hexdigest()
 
     def join(self, name):
         return self.sep.join([self.scope, name])
@@ -67,27 +72,39 @@ class Cache(object):
         content = self.cache.get(self.join(name))
         return Iterator(StringIO.StringIO(content))
 
+    def iter_fileobj(self, name):
+        return Iterator(open(self.cache.get(self.join(name)), 'rb'))
+
+    def has_fileobj(self, name):
+        return os.path.exists(self.cache.get(self.join(name)))
+
 
 class IterCaching(Iterator, Cache):
+    content_dir = 'djfiles'
+
     def __init__(self, scope, data, **kwargs):
         Iterator.__init__(self, data)
         Cache.__init__(self, scope)
-        self.temp = tempfile.TemporaryFile()
+        file_dir = os.path.join(self.cache._dir, self.content_dir)
+
+        if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
+
+        self.fileobj = tempfile.NamedTemporaryFile(dir=file_dir, delete=False)
         self.kwargs = kwargs
 
     def __iter__(self):
         try:
-            iterator = super(IterCaching, self).__iter__()
-            for data in iterator:
-                self.temp.write(data)
+            for data in super(IterCaching, self).__iter__():
+                self.fileobj.write(data)
                 yield data
         except StopIteration:
             raise
         finally:
-            self.temp.seek(0)
+            self.kwargs['fileobj'] = True
             self[ProxyRequest.HEADERS] = self.kwargs
-            self[ProxyRequest.CONTENT] = self.temp.read()
-            self.temp.close()
+            self[ProxyRequest.CONTENT] = self.fileobj.name
+            self.fileobj.close()
 
 
 class SmartCache(object):
@@ -114,6 +131,10 @@ class SmartCache(object):
     @property
     def is_chunked(self):
         return self.transfer_encoding == 'chunked'
+
+    @property
+    def is_fileobj(self):
+        return self.headers.get('fileobj', False)
 
     @property
     def is_application(self):
@@ -184,6 +205,8 @@ class ProxyRequest(object):
 
         if _smart.is_text:
             response = HttpResponse(cache[self.CONTENT])
+        elif _smart.is_fileobj:
+            response = StreamingHttpResponse(cache.iter_fileobj(self.CONTENT))
         else:
             response = StreamingHttpResponse(cache.iter(self.CONTENT))
         for header, value in headers.iteritems():
