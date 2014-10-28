@@ -210,7 +210,8 @@ class ProxyRequest(object):
             _smart = SmartCache(**resp_headers)
 
             if _smart.is_text:
-                text = req.text
+                req.raw.decode_content = True
+                text = req.raw.read()
 
                 resp_headers = utils.exclude_by(
                     req.headers, *self.RESPONSE_EXCLUDES)
