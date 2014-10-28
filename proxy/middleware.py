@@ -2,7 +2,6 @@ import StringIO
 from contextlib import closing
 import os
 import tempfile
-import urllib
 from django.http import HttpResponse, StreamingHttpResponse
 from django.core.cache import get_cache, DEFAULT_CACHE_ALIAS
 import re
