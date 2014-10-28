@@ -155,6 +155,7 @@ class ProxyRequest(object):
 
     REQUEST_HEADERS = [
         'USER-AGENT',
+        'X-REQUESTED-WITH',
         'ACCEPT-ENCODING',
         'ACCEPT-LANGUAGE',
         'CONTENT-TYPE',
@@ -203,6 +204,8 @@ class ProxyRequest(object):
         req_headers = utils.filter_by(request_headers, *self.REQUEST_HEADERS)
 
         path = utils.get_path(request)
+
+        print req_headers
 
         with closing(session.request(request.method, path, proxies=self.NO_PROXY,
                                      data=request.POST.copy(), stream=True, headers=req_headers,
