@@ -153,15 +153,10 @@ class ProxyRequest(object):
         'content-encoding',
     ]
 
-    REQUEST_HEADERS = [
-        'USER-AGENT',
-        'X-REQUESTED-WITH',
-        'ACCEPT-ENCODING',
-        'ACCEPT-LANGUAGE',
-        'CONTENT-TYPE',
-        'REFERER',
-        'HOST',
-        'COOKIE'
+    REQUEST_EXCLUDES = [
+        'CONTENT-LENGTH',
+        'IF-MODIFIED-SINCE',
+        'IF-NONE-MATCH'
     ]
 
     RESPONSE_EXCLUDES = [
@@ -201,7 +196,7 @@ class ProxyRequest(object):
         session.trust_env = False
 
         request_headers = utils.get_request_headers(request)
-        req_headers = utils.filter_by(request_headers, *self.REQUEST_HEADERS)
+        req_headers = utils.exclude_by(request_headers, *self.REQUEST_EXCLUDES)
 
         path = utils.get_path(request)
 
