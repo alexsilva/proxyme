@@ -225,13 +225,16 @@ class ProxyRequest(object):
             else:
                 response = StreamingHttpResponse(Iterator(req.raw))
 
-            cache[self.HEADERS] = self.copy_headers(resp_headers, response)
+            headers = self.copy_headers(resp_headers, response)
+            headers['REFERER'] = req_headers.get('REFERER', None)
+            cache[self.HEADERS] = headers
+
             self.setup_response_headers(response, req_headers)
         return response
 
     @classmethod
     def setup_response_headers(cls, response, headers):
-        if 'REFERER' in headers:
+        if bool(headers.get('REFERER', None)):
             response['X-Frame-Options'] = cls.FRAME_OPTION.format(
                 **headers)
 
