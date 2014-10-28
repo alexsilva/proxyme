@@ -205,8 +205,6 @@ class ProxyRequest(object):
 
         path = utils.get_path(request)
 
-        print req_headers
-
         with closing(session.request(request.method, path, proxies=self.NO_PROXY,
                                      data=request.POST.copy(), stream=True, headers=req_headers,
                                      allow_redirects=True)) as req:
