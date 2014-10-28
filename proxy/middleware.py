@@ -156,7 +156,8 @@ class ProxyRequest(object):
     REQUEST_EXCLUDES = [
         'CONTENT-LENGTH',
         'IF-MODIFIED-SINCE',
-        'IF-NONE-MATCH'
+        'IF-NONE-MATCH',
+        'HOST'
     ]
 
     RESPONSE_EXCLUDES = [
