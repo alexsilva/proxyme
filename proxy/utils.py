@@ -1,8 +1,9 @@
 # coding=utf-8
-import os
 import re
 from unicodedata import normalize
-import urllib
+
+from django.utils import lru_cache
+
 
 __author__ = 'alex'
 
@@ -18,7 +19,9 @@ def get_request_url(request):
                       server=server_name)
 
 
-def get_path(request):
+@lru_cache.lru_cache()
+def get_path(**kwargs):
+    request = kwargs.get('request')
     path = request.path.lstrip('/').strip()
     if not path or not path.startswith('http'):
         path = get_request_url(request)
@@ -39,7 +42,6 @@ def get_request_headers(request):
     for header in request.META:
         if regex_http_.match(header) or regex_content_type.match(header) or \
                 regex_content_length.match(header):
-
             name = regex_http.sub('', str(header))
             name = name.replace('_', '-')
 
@@ -61,6 +63,7 @@ def exclude_by(items, *options):
         if not h in options:
             _options[h] = items[h]
     return _options
+
 
 def ascii(txt):
     if isinstance(txt, unicode):

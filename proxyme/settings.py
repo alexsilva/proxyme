@@ -89,12 +89,12 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 TEMPLATE_DIRS = (
-    os.path.join(BASE_DIR,  'templates'),
+    os.path.join(BASE_DIR, 'templates'),
 )
 
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'BACKEND': 'proxy.cache.backend.FileBasedCache',
         'LOCATION': os.path.join(tempfile.gettempdir(), 'webcache')
     }
 }

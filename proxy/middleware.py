@@ -1,118 +1,24 @@
-import StringIO
 from contextlib import closing
-import os
-import tempfile
-from django.http import HttpResponse, StreamingHttpResponse
-from django.core.cache import get_cache, DEFAULT_CACHE_ALIAS
 import re
+
+from django.core.cache import get_cache, DEFAULT_CACHE_ALIAS
+from django.http import HttpResponse, StreamingHttpResponse
 import requests
+
 from proxy import utils
-import time
-import hashlib
+from proxy.cache.backend import Iterator
+
 
 __author__ = 'alex'
 
 
-class Iterator(object):
-
-    def __init__(self, data):
-        self.data = data
-
-    def __iter__(self):
-        counter = 1024
-        while True:
-            before = time.time()
-            chunk = self.data.read(counter)
-            if not chunk and counter:
-                break
-            after = time.time()
-            counter = self.best_block_size((after-before), len(chunk))
-            yield chunk
-        raise StopIteration
-
-    @staticmethod
-    def best_block_size(elapsed_time, bytes):
-        new_min = max(bytes / 2.0, 1.0)
-        new_max = min(max(bytes * 2.0, 1.0), 4194304) # Do not surpass 4 MB
-        if elapsed_time < 0.001:
-            return long(new_max)
-        rate = bytes / elapsed_time
-        if rate > new_max:
-            return long(new_max)
-        if rate < new_min:
-            return long(new_min)
-        return long(rate)
-
-
-class Cache(object):
-    sep = ':'
-
-    def __init__(self, scope):
-        self.scope = self.create_key(scope)
-        self.cache = get_cache(DEFAULT_CACHE_ALIAS)
-
-    @staticmethod
-    def create_key(data):
-        return hashlib.md5(utils.ascii(data)).hexdigest()
-
-    def join(self, name):
-        return self.sep.join([self.scope, name])
-
-    def __getitem__(self, key):
-        return self.cache.get(self.join(key))
-
-    def __setitem__(self, key, value):
-        self.cache.add(self.join(key), value)
-
-    def has(self, name):
-        return self.cache.has_key(self.join(name))
-
-    def iter(self, name):
-        content = self.cache.get(self.join(name))
-        return Iterator(StringIO.StringIO(content))
-
-    def iter_fileobj(self, name):
-        return Iterator(open(self.cache.get(self.join(name)), 'rb'))
-
-    def has_fileobj(self, name):
-        return os.path.exists(self.cache.get(self.join(name)))
-
-
-class IterCaching(Iterator, Cache):
-    content_dir = 'djfiles'
-
-    def __init__(self, scope, data, **kwargs):
-        Iterator.__init__(self, data)
-        Cache.__init__(self, scope)
-        file_dir = os.path.join(self.cache._dir, self.content_dir)
-
-        if not os.path.exists(file_dir):
-            os.makedirs(file_dir)
-
-        self.fileobj = tempfile.NamedTemporaryFile(dir=file_dir, delete=False)
-        self.kwargs = kwargs
-
-    def __iter__(self):
-        try:
-            for data in super(IterCaching, self).__iter__():
-                self.fileobj.write(data)
-                yield data
-        except StopIteration:
-            raise
-        finally:
-            self.kwargs['fileobj'] = True
-            self[ProxyRequest.HEADERS] = self.kwargs
-            self[ProxyRequest.CONTENT] = self.fileobj.name
-            self.fileobj.close()
-
-
 class SmartCache(object):
-
     pattern_program = re.compile("^(?:application/(?:octet-stream.*?|x-shockwave.*?)|font.*$)")
     pattern_text = re.compile("^(?:text/.*$|application/(?:(?:x-)?javascript|xhtml.*$|vnd.*$))", re.I)
     pattern_media = re.compile("^(?:video/.*$|audio/.*$)")
 
-    def __init__(self, **headers):
+    def __init__(self, cache, **headers):
+        self.cache = cache
         self.headers = headers
 
     @property
@@ -133,7 +39,7 @@ class SmartCache(object):
 
     @property
     def is_fileobj(self):
-        return self.headers.get('fileobj', False)
+        return self.headers.get(self.cache.STREAM_KEY, False)
 
     @property
     def is_application(self):
@@ -156,8 +62,6 @@ class SmartCache(object):
 
 class ProxyRequest(object):
     """ proxy server it self """
-    CONTENT = 'text'
-    HEADERS = 'headers'
 
     NO_PROXY = {'no': 'pass'}
 
@@ -187,10 +91,14 @@ class ProxyRequest(object):
 
     FRAME_OPTION = 'ALLOW-FROM {REFERER}'
 
-    def process_request(self, request):
-        cache = Cache("{0!s}:{1!s}".format(request.method, utils.get_path(request)))
+    @staticmethod
+    def make_scope_key(request):
+        return "{0!s}:{1!s}".format(request.method, utils.get_path(request=request))
 
-        if cache.has(self.CONTENT) and cache.has(self.HEADERS):
+    def process_request(self, request):
+        cache = get_cache(DEFAULT_CACHE_ALIAS, scope=self.make_scope_key(request))
+
+        if cache.has_key(cache.META_KEY) and cache.has_key(cache.CONTENT_KEY):
             response = self._response_cache(request, cache)
         else:
             response = self._response_web(request, cache)
@@ -198,16 +106,18 @@ class ProxyRequest(object):
         return response
 
     def _response_cache(self, request, cache):
-        headers = cache[self.HEADERS]
+        headers = cache[cache.META_KEY]
 
-        _smart = SmartCache(**headers)
+        _smart = SmartCache(cache, **headers)
 
         if _smart.is_text:
-            response = HttpResponse(cache[self.CONTENT])
+            response = HttpResponse(cache[cache.CONTENT_KEY])
+
         elif _smart.is_fileobj:
-            response = StreamingHttpResponse(cache.iter_fileobj(self.CONTENT))
+            response = StreamingHttpResponse(cache.iter_fileobj(cache.CONTENT_KEY))
         else:
-            response = StreamingHttpResponse(cache.iter(self.CONTENT))
+            response = StreamingHttpResponse(cache.iter(cache.CONTENT_KEY))
+
         for header, value in headers.iteritems():
             response[header] = value
 
@@ -218,38 +128,41 @@ class ProxyRequest(object):
         session = requests.Session()
         session.trust_env = False
 
-        request_headers = utils.get_request_headers(request)
-        req_headers = utils.exclude_by(request_headers, *self.REQUEST_EXCLUDES)
+        _headers = utils.get_request_headers(request)
+        request_headers = utils.exclude_by(_headers, *self.REQUEST_EXCLUDES)
 
-        path = utils.get_path(request)
+        path = utils.get_path(request=request)
 
         with closing(session.request(request.method, path, proxies=self.NO_PROXY,
-                                     data=request.POST.copy(), stream=True, headers=req_headers,
+                                     data=request.POST.copy(), stream=True, headers=request_headers,
                                      allow_redirects=True)) as req:
 
-            resp_headers = req.headers
+            response_headers = req.headers
 
-            _smart = SmartCache(**resp_headers)
+            _smart = SmartCache(cache, **response_headers)
 
             if _smart.is_text:
                 req.raw.decode_content = True
                 text = req.raw.read()
 
-                resp_headers = utils.exclude_by(
-                    req.headers, *self.RESPONSE_EXCLUDES)
+                response_headers = utils.exclude_by(req.headers, *self.RESPONSE_EXCLUDES)
 
                 response = HttpResponse(text)
-                cache[self.CONTENT] = text
+                cache[cache.CONTENT_KEY] = text
+
             elif _smart.is_cacheable():
-                response = StreamingHttpResponse(IterCaching(path, req.raw))
+                response = StreamingHttpResponse(cache.iter_set_stream(req.raw))
+                request_headers[cache.STREAM_KEY] = True
             else:
                 response = StreamingHttpResponse(Iterator(req.raw))
 
-            headers = self.copy_headers(resp_headers, response)
-            headers['REFERER'] = req_headers.get('REFERER', None)
-            cache[self.HEADERS] = headers
+            headers = self.copy_headers(response_headers, response)
+            headers[cache.STREAM_KEY] = request_headers.get(cache.STREAM_KEY, False)
+            headers['REFERER'] = request_headers.get('REFERER', None)
 
-            self.setup_response_headers(response, req_headers)
+            cache[cache.META_KEY] = headers
+
+            self.setup_response_headers(response, request_headers)
         return response
 
     @classmethod
