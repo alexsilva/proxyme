@@ -145,9 +145,10 @@ class FileBasedCache(filebased.FileBasedCache, Iterator):
         except StopIteration:
             raise
         finally:
+            fileobj.close()
+
             kwargs[self.STREAM_KEY] = True
             kwargs[self.FILEPATH_KEY] = fileobj.name
 
-            self.add(self.join(self.CONTENT_KEY), kwargs)
-
-            fileobj.close()
+            if not self.add(self.join(self.CONTENT_KEY), kwargs):
+                self._remove_filepath(fileobj.name)
