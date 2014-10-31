@@ -9,6 +9,7 @@ import errno
 import zlib
 
 from django.core.cache.backends import filebased
+import shutil
 
 from proxy import utils
 
@@ -124,11 +125,15 @@ class FileBasedCache(filebased.FileBasedCache, Iterator):
     def _delete(self, key):
         params = self.get_content(key, {})
 
-        if type(params) is dict and params.get(self.STREAM_KEY, False) and self.FILEPATH_KEY in params or \
-                not self.scope:
+        if type(params) is dict and params.get(self.STREAM_KEY, False) and self.FILEPATH_KEY in params:
             self._remove_filepath(params[self.FILEPATH_KEY])
 
         super(FileBasedCache, self)._delete(key)
+
+    def clear(self):
+        """ clear all cache content """
+        super(FileBasedCache, self).clear()
+        shutil.rmtree(self.stream_dir)
 
     def iter_set_stream(self, data, **kwargs):
         fileobj = tempfile.NamedTemporaryFile(dir=self.stream_dir, delete=False)
