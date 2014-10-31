@@ -99,7 +99,12 @@ class ProxyRequest(object):
         cache = get_cache(DEFAULT_CACHE_ALIAS, scope=self.make_scope_key(request))
 
         if cache.has_key(cache.META_KEY) and cache.has_key(cache.CONTENT_KEY):
-            response = self._response_cache(request, cache)
+            # noinspection PyBroadException
+            try:
+                response = self._response_cache(request, cache)
+            except Exception as e:
+                response = self._response_web(request, cache)
+                print(e)
         else:
             response = self._response_web(request, cache)
 
