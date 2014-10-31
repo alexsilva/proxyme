@@ -95,6 +95,10 @@ TEMPLATE_DIRS = (
 CACHES = {
     'default': {
         'BACKEND': 'proxy.cache.backend.FileBasedCache',
-        'LOCATION': os.path.join(tempfile.gettempdir(), 'webcache')
+        'LOCATION': os.path.join(tempfile.gettempdir(), 'webcache'),
+        'TIMEOUT': 1800,
+        'OPTIONS': {
+            'MAX_ENTRIES': 10000
+        }
     }
 }
