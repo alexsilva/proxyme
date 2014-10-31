@@ -19,7 +19,7 @@ def get_request_url(request):
                       server=server_name)
 
 
-@lru_cache.lru_cache()
+@lru_cache.lru_cache(maxsize=5)
 def get_path(**kwargs):
     request = kwargs.get('request')
     path = request.path.lstrip('/').strip()
