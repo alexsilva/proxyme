@@ -27,6 +27,11 @@ def get_path(**kwargs):
         path = get_request_url(request)
     if request.method == 'GET' and request.META['QUERY_STRING']:
         path += ('?' + request.META['QUERY_STRING'])
+    if type(path) is unicode:
+        try:
+            path = path.encode('utf-8')
+        except UnicodeEncodeError:
+            path = str(path)
     return str(path)
 
 
