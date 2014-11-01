@@ -17,8 +17,8 @@ class SmartCache(object):
     pattern_text = re.compile("^(?:text/.*$|application/(?:(?:x-)?javascript|xhtml.*$|vnd.*$))", re.I)
     pattern_media = re.compile("^(?:video/.*$|audio/.*$)")
 
-    def __init__(self, cache, **headers):
-        self.cache = cache
+    def __init__(self, _cache_obj, **headers):
+        self.cache = _cache_obj
         self.headers = headers
 
     @property
@@ -72,7 +72,7 @@ class ProxyRequest(object):
         'proxy-authorization',
         'te',
         'trailers',
-        'transfer-encoding',
+        #'transfer-encoding',
         'upgrade',
         'content-encoding',
     ]
@@ -145,9 +145,9 @@ class ProxyRequest(object):
             response_headers = req.headers
 
             _smart = SmartCache(cache, **response_headers)
+            req.raw.decode_content = True
 
             if _smart.is_text:
-                req.raw.decode_content = True
                 text = req.raw.read()
 
                 response_headers = utils.exclude_by(req.headers, *self.RESPONSE_EXCLUDES)
